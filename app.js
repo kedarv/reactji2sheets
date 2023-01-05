@@ -112,7 +112,7 @@ app.event('reaction_added', async ({ event, client, say }) => {
                 },
             });
 
-            if (!message) {
+            if (!recording) {
                 // console.log('message:', message);
                 const user_result = await client.users.info({
                     user: message.user,
@@ -150,7 +150,7 @@ app.command('/reactji2sheets', async ({ command, ack, respond }) => {
         await respond("I don't know how to parse that. Use `help` for more.");
     } else if (text == 'help') {
         await respond(
-            'reactji2sheets transits Slack messages to Google Sheets. Use /reactji2sheets :emoji: to register the current channel and emoji pairing.'
+            'reactji2sheets transits Slack messages to Google Sheets. Use /reactji2sheets :emoji: <spreadsheet_id> to register the current channel with an emoji and spreadsheet pairing.'
         );
     } else if (text.includes('register')) {
         const parts = text.split(' ');
