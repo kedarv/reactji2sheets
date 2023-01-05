@@ -1,6 +1,7 @@
 import envSchema from 'env-schema';
 import pkg from '@slack/bolt';
 import { Sequelize, DataTypes } from 'sequelize';
+import { write } from './sheets.js';
 const { App } = pkg;
 
 const schema = {
@@ -50,6 +51,7 @@ const Mappings = sequelize.define(
         },
         channel: DataTypes.STRING,
         emoji: DataTypes.STRING,
+        spreadsheet_id: DataTypes.STRING,
     },
     {
         uniqueKeys: {
@@ -59,6 +61,20 @@ const Mappings = sequelize.define(
         },
         defaultScope: {
             attributes: { exclude: ['id'] },
+        },
+    }
+);
+
+const Recordings = sequelize.define(
+    'Recordings',
+    {
+        client_msg_id: DataTypes.STRING,
+    },
+    {
+        uniqueKeys: {
+            Items_unique: {
+                fields: ['client_msg_id'],
+            },
         },
     }
 );
@@ -78,6 +94,7 @@ app.event('reaction_added', async ({ event, client, say }) => {
             emoji: event.reaction,
         },
     });
+
     if (mapping) {
         try {
             const result = await client.conversations.history({
@@ -89,12 +106,37 @@ app.event('reaction_added', async ({ event, client, say }) => {
 
             const message = result.messages[0];
 
-            // TODO: write to Gsheetes
-            console.log('message:', message);
-            await say({
-                text: `Recorded :thumbsup:`,
-                thread_ts: event.item.ts,
+            const recording = await Recordings.findOne({
+                where: {
+                    client_msg_id: message.client_msg_id,
+                },
             });
+
+            if (!message) {
+                // console.log('message:', message);
+                const user_result = await client.users.info({
+                    user: message.user,
+                });
+                await write(
+                    event.item.ts,
+                    event.item.channel,
+                    message.text,
+                    user_result.user.name,
+                    mapping.spreadsheet_id
+                );
+                await Recordings.create({
+                    client_msg_id: message.client_msg_id,
+                });
+                await say({
+                    text: `<@${event.user}>: Recorded :thumbsup:`,
+                    thread_ts: event.item.ts,
+                });
+            } else {
+                await say({
+                    text: `<@${event.user}>: I already recorded this!`,
+                    thread_ts: event.item.ts,
+                });
+            }
         } catch (e) {
             console.log('error:', e);
         }
@@ -112,15 +154,16 @@ app.command('/reactji2sheets', async ({ command, ack, respond }) => {
         );
     } else if (text.includes('register')) {
         const parts = text.split(' ');
-        if (parts.length != 2) {
+        if (parts.length != 3) {
             await respond(
-                'Oops! Expected register command to contain an emoji. Sample usage: `/reactji2sheets :wave:`'
+                'Oops! Expected register command to contain an emoji. Sample usage: `/reactji2sheets :wave: <spreadsheet_id>`'
             );
         } else {
             try {
                 await Mappings.create({
                     channel: command.channel_id,
                     emoji: parts[1].slice(1, -1),
+                    spreadsheet_id: parts[2],
                 });
                 await respond(
                     `Ok! I've registered ${parts[1]} for the channel <#${command.channel_id}>.`
