@@ -1,12 +1,24 @@
 {
-  "name": "reactji2sheets",
-  "version": "1.0.0",
-  "main": "app.js",
-  "license": "MIT",
-  "dependencies": {
-    "@slack/bolt": "^3.12.2",
-    "dotenv": "^16.0.3",
-    "env-schema": "^5.2.0"
-  },
-  "type": "module"
+    "name": "reactji2sheets",
+    "version": "1.0.0",
+    "main": "app.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node app.js",
+        "watch": "nodemon app.js",
+        "format": "yarn prettier --write ."
+    },
+    "license": "MIT",
+    "dependencies": {
+        "@slack/bolt": "^3.12.2",
+        "dotenv": "^16.0.3",
+        "env-schema": "^5.2.0",
+        "sequelize": "^6.28.0",
+        "sqlite3": "^5.1.4"
+    },
+    "type": "module",
+    "devDependencies": {
+        "nodemon": "^2.0.20",
+        "prettier": "^2.8.1"
+    }
 }
