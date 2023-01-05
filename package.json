@@ -1,0 +1,12 @@
+{
+  "name": "reactji2sheets",
+  "version": "1.0.0",
+  "main": "app.js",
+  "license": "MIT",
+  "dependencies": {
+    "@slack/bolt": "^3.12.2",
+    "dotenv": "^16.0.3",
+    "env-schema": "^5.2.0"
+  },
+  "type": "module"
+}
