@@ -13,6 +13,13 @@ const authorize = async (tokens) => {
         process.env.GOOGLE_APIS_REDIRECT_URL
     );
     const auth = oauth2Client.setCredentials(creds);
+    // oauth2Client.on('tokens', (tokens) => {
+    //     if (tokens.refresh_token) {
+    //       // store the refresh_token in your secure persistent database
+    //       console.log(tokens.refresh_token);
+    //     }
+    //     console.log(tokens.access_token);
+    //   });
     return oauth2Client;
 };
 
