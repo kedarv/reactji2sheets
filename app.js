@@ -5,7 +5,11 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyEnv from '@fastify/env';
 import axios from 'axios';
-import { write } from './sheets.js';
+import {
+    write,
+    getGoogleAuthorizationUrl,
+    exchangeCodeForTokens,
+} from './sheets.js';
 const { App } = pkg;
 
 const schema = {
@@ -17,6 +21,9 @@ const schema = {
         'FASTIFY_PORT',
         'SLACK_CLIENT_ID',
         'SLACK_CLIENT_SECRET',
+        'GOOGLE_APIS_CLIENT_ID',
+        'GOOGLE_APIS_CLIENT_SECRET',
+        'GOOGLE_APIS_REDIRECT_URL',
     ],
     properties: {
         SLACK_SIGNING_SECRET: {
@@ -37,6 +44,15 @@ const schema = {
         SLACK_CLIENT_SECRET: {
             type: 'string',
         },
+        GOOGLE_APIS_CLIENT_ID: {
+            type: 'string',
+        },
+        GOOGLE_APIS_CLIENT_SECRET: {
+            type: 'string',
+        },
+        GOOGLE_APIS_REDIRECT_URL: {
+            type: 'string',
+        },
     },
 };
 const config = envSchema({
@@ -52,6 +68,27 @@ const sequelize = new Sequelize({
     logging: false,
 });
 
+const SlackUserToSheetsToken = sequelize.define(
+    'SlackUserToSheetsToken',
+    {
+        connector_user_id: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        token: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+    },
+    {
+        uniqueKeys: {
+            Items_unique: {
+                fields: ['connector_user_id'],
+            },
+        },
+    }
+);
+
 const Mappings = sequelize.define(
     'Mappings',
     {
@@ -64,6 +101,7 @@ const Mappings = sequelize.define(
         channel: DataTypes.STRING,
         emoji: DataTypes.STRING,
         spreadsheet_id: DataTypes.STRING,
+        connector_user_id: DataTypes.STRING,
     },
     {
         uniqueKeys: {
@@ -111,8 +149,8 @@ await sequelize.sync();
 const startedWorkspaces = {};
 
 const startWorkspace = async (workspace) => {
-    if(Object.keys(startedWorkspaces).includes(workspace.team_id)) {
-        console.log("aborting duplicate listener");
+    if (Object.keys(startedWorkspaces).includes(workspace.team_id)) {
+        console.log('aborting duplicate listener');
         return;
     }
 
@@ -148,11 +186,16 @@ const startWorkspace = async (workspace) => {
                     },
                 });
 
-                if (!recording) {
+                const googleCreds = await SlackUserToSheetsToken.findOne({
+                    where: { connector_user_id: message.user },
+                });
+
+                if (!recording && googleCreds) {
                     const user_result = await client.users.info({
                         user: message.user,
                     });
                     await write(
+                        googleCreds.token,
                         event.item.ts,
                         event.item.channel,
                         message.text,
@@ -187,20 +230,31 @@ const startWorkspace = async (workspace) => {
             );
         } else if (text == 'help') {
             await respond(
-                'reactji2sheets transits Slack messages to Google Sheets. Use /reactji2sheets :emoji: <spreadsheet_id> to register the current channel with an emoji and spreadsheet pairing.'
+                'reactji2sheets transits Slack messages to Google Sheets. Use /reactji2sheets register :emoji: <spreadsheet_id> to register the current channel with an emoji and spreadsheet pairing.'
             );
         } else if (text.includes('register')) {
             const parts = text.split(' ');
             if (parts.length != 3) {
                 await respond(
-                    'Oops! Expected register command to contain an emoji. Sample usage: `/reactji2sheets :wave: <spreadsheet_id>`'
+                    'Oops! Expected register command to contain an emoji. Sample usage: `/reactji2sheets register :wave: <spreadsheet_id>`'
                 );
             } else {
                 try {
+                    let userConnector = await SlackUserToSheetsToken.findOne({
+                        where: { connector_user_id: command.user_id },
+                    });
+                    if (!userConnector) {
+                        const url = getGoogleAuthorizationUrl(command.user_id);
+                        await respond(
+                            `You need to connect to <${url}|Google Sheets first>.`
+                        );
+                        return;
+                    }
                     await Mappings.create({
                         channel: command.channel_id,
                         emoji: parts[1].slice(1, -1),
                         spreadsheet_id: parts[2],
+                        connector_user_id: command.user_id,
                     });
                     await respond(
                         `Ok! I've registered ${parts[1]} for the channel <#${command.channel_id}>.`
@@ -223,18 +277,29 @@ const startWorkspace = async (workspace) => {
         );
     })();
 };
-const workspaces = await Workspaces.findAll();
-for (const workspace of workspaces) {
-    await startWorkspace(workspace);
-}
 
 const fastify = Fastify({
     logger: true,
 });
 await fastify.register(cors);
 await fastify.after();
+
 fastify.get('/', async (request, reply) => {
     return 'reactji2sheets is running';
+});
+
+fastify.get('/googleauth', async (request, reply) => {
+    if (request.query.code && request.query.state) {
+        const user_id = JSON.parse(request.query.state).user_id;
+        const tokens = await exchangeCodeForTokens(request.query.code);
+
+        await SlackUserToSheetsToken.create({
+            connector_user_id: user_id,
+            token: JSON.stringify(tokens),
+        });
+        return 'woot! it worked, go back to Slack and register your reactji';
+    }
+    return 'something went wrong';
 });
 
 fastify.get('/oauth', async (request, reply) => {
@@ -266,6 +331,12 @@ fastify.get('/oauth', async (request, reply) => {
     }
     return 'something went wrong';
 });
+
+const workspaces = await Workspaces.findAll();
+
+for (const workspace of workspaces) {
+    await startWorkspace(workspace);
+}
 
 (async () => {
     await fastify.listen({ port: config.FASTIFY_PORT, host: '0.0.0.0' });
