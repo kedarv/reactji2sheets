@@ -10,9 +10,13 @@
     },
     "license": "MIT",
     "dependencies": {
+        "@fastify/cors": "^8.2.0",
+        "@fastify/env": "^4.2.0",
         "@slack/bolt": "^3.12.2",
+        "axios": "^1.2.2",
         "dotenv": "^16.0.3",
         "env-schema": "^5.2.0",
+        "fastify": "^4.11.0",
         "googleapis": "^110.0.0",
         "sequelize": "^6.28.0",
         "sqlite3": "^5.1.4"
