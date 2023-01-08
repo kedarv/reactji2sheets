@@ -3,7 +3,8 @@ import pkg from '@slack/bolt';
 import { Sequelize, DataTypes } from 'sequelize';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import fastifyEnv from '@fastify/env';
+import fastifyView from '@fastify/view';
+import ejs from 'ejs';
 import axios from 'axios';
 import {
     write,
@@ -18,7 +19,7 @@ const schema = {
         'SLACK_SIGNING_SECRET',
         'SLACK_APP_TOKEN',
         'DB_PATH',
-        'FASTIFY_PORT',
+        'PORT',
         'SLACK_CLIENT_ID',
         'SLACK_CLIENT_SECRET',
         'GOOGLE_APIS_CLIENT_ID',
@@ -35,7 +36,7 @@ const schema = {
         DB_PATH: {
             type: 'string',
         },
-        FASTIFY_PORT: {
+        PORT: {
             type: 'number',
         },
         SLACK_CLIENT_ID: {
@@ -282,10 +283,19 @@ const fastify = Fastify({
     logger: true,
 });
 await fastify.register(cors);
+fastify.register(fastifyView, {
+    engine: {
+        ejs: ejs,
+    }
+})
 await fastify.after();
 
-fastify.get('/', async (request, reply) => {
-    return 'reactji2sheets is running';
+fastify.get('/', (request, reply) => {
+    reply.view("/templates/home.ejs", { text: "text" });
+});
+
+fastify.get('/privacy', (request, reply) => {
+    reply.view("/templates/privacy_policy.ejs", { text: "text" });
 });
 
 fastify.get('/googleauth', async (request, reply) => {
@@ -339,5 +349,5 @@ for (const workspace of workspaces) {
 }
 
 (async () => {
-    await fastify.listen({ port: config.FASTIFY_PORT, host: '0.0.0.0' });
+    await fastify.listen({ port: config.PORT, host: '0.0.0.0' });
 })();
