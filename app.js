@@ -195,12 +195,18 @@ const startWorkspace = async (workspace) => {
                     const user_result = await client.users.info({
                         user: message.user,
                     });
+                    const permalink = await client.chat.getPermalink({
+                        message_ts: event.item.ts,
+                        channel: event.item.channel
+                    });
+                    
                     await write(
                         googleCreds.token,
                         event.item.ts,
                         event.item.channel,
                         message.text,
                         user_result.user.name,
+                        permalink,
                         mapping.spreadsheet_id
                     );
                     await Recordings.create({

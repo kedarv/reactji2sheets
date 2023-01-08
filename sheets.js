@@ -23,7 +23,7 @@ const authorize = async (tokens) => {
     return oauth2Client;
 };
 
-export async function write(code, ts, channel, message, user, spreadsheetId) {
+export async function write(code, ts, channel, message, user, permalink, spreadsheetId) {
     const auth = await authorize(code);
     const googleSheets = google.sheets({ version: 'v4', auth: auth });
     await googleSheets.spreadsheets.values.append({
@@ -33,7 +33,7 @@ export async function write(code, ts, channel, message, user, spreadsheetId) {
         valueInputOption: 'USER_ENTERED',
         requestBody: {
             majorDimension: 'ROWS',
-            values: [[ts, channel, message, user]],
+            values: [[ts, channel, message, permalink, user]],
         },
     });
 }
