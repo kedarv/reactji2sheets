@@ -206,7 +206,7 @@ const startWorkspace = async (workspace) => {
                         event.item.channel,
                         message.text,
                         user_result.user.name,
-                        permalink,
+                        permalink.permalink,
                         mapping.spreadsheet_id
                     );
                     await Recordings.create({
