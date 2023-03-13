@@ -20,7 +20,7 @@
         "fastify": "^4.11.0",
         "googleapis": "^110.0.0",
         "sequelize": "^6.28.0",
-        "sqlite3": "^5.1.4"
+        "sqlite3": "^5.1.5"
     },
     "type": "module",
     "devDependencies": {
